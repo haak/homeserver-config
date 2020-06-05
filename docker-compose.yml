@@ -1,0 +1,252 @@
+---
+version: "3.3"
+services:
+  plex:
+    image: linuxserver/plex
+    container_name: plex
+    network_mode: host
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - VERSION=docker
+      - UMASK_SET=022 #optional
+      - PLEX_CLAIM= #optional
+    volumes:
+      - $PLEX_DATA:/config
+      - $TV_DATA:/tv
+      - $MOVIE_DATA:/movies
+    ports:
+      - $PLEX_PORT:$PLEX_PORT
+    restart: unless-stopped
+#####################################################
+  ombi:
+    image: linuxserver/ombi
+    container_name: ombi
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - BASE_URL=/ombi #optional
+    volumes:
+      - $OMBI_DATA:/config
+    ports:
+      - 3579:3579
+    restart: unless-stopped
+#####################################################
+  sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - UMASK_SET=022 #optional
+    volumes:
+      - $SONARR_DATA:/config
+      - $TV_DATA:/tv
+      - $COMPLETE_FOLDER:/downloads
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+#####################################################
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - UMASK_SET=022 #optional
+    volumes:
+      - $RADARR_DATA:/config
+      - $MOVIE_DATA:/movies
+      - $COMPLETE_FOLDER:/downloads
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+#####################################################
+  heimdall:
+    image: linuxserver/heimdall
+    container_name: heimdall
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+    volumes:
+      - $HEIMDALL_DATA:/config
+    ports:
+      - 80:80
+      - 443:443
+    restart: unless-stopped
+#####################################################
+  transmission-openvpn:
+    container_name: transmission-openvpn
+    volumes:
+      - $COMPLETE_FOLDER:/data/completed
+      - $INCOMPLETE_FOLDER:/data/incomplete
+      - $TRANSMISSION_WATCH:/data/watch
+      - $TRANSMISSION_HOME:/data/transmission-home
+      - '/etc/localtime:/etc/localtime:ro'
+    environment:
+        - CREATE_TUN_DEVICE=true
+        - OPENVPN_PROVIDER=$OPENVPN_PROVIDER
+        - OPENVPN_CONFIG=$OPENVPN_CONFIG
+        - OPENVPN_USERNAME=$PIA_USERNAME
+        - OPENVPN_PASSWORD=$PIA_PASSWORD
+        - WEBPROXY_ENABLED=false
+        - LOCAL_NETWORK=192.168.0.0/16
+    cap_add:
+        - NET_ADMIN
+    logging:
+        driver: json-file
+        options:
+            max-size: 10m
+    ports:
+        - $TRANSMISSION_PORT:9091
+    restart: unless-stopped
+    image: haugene/transmission-openvpn
+#####################################################
+  jackett:
+    image: linuxserver/jackett
+    container_name: jackett
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - AUTO_UPDATE=true #optional
+      - RUN_OPTS=run options here #optional
+    volumes:
+      - /home/alex/Documents/jackett/:/config
+      - /mnt/storage/root/blackHole:/downloads
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+#####################################################
+  portainer:
+    image: portainer/portainer
+    command: -H unix:///var/run/docker.sock
+    restart: always
+    ports:
+      - 9000:9000
+      - 8000:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - $PORTAINER_DATA:/data
+#####################################################
+  sabnzbd:
+    image: linuxserver/sabnzbd
+    container_name: sabnzbd
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+    volumes:
+      - $SABNZBD_DATA:/config
+      - $COMPLETE_FOLDER:/downloads
+      - $INCOMPLETE_FOLDER:/incomplete-downloads #optional
+    ports:
+      - 8080:8080 
+      - 9090:9090
+    restart: unless-stopped
+####################################################
+  piwigo:
+    image: linuxserver/piwigo
+    container_name: piwigo
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+    volumes:
+      - $PIWIGO_DATA:/config
+    ports:
+      - 80:80
+    restart: unless-stopped
+####################################################
+  pyload:
+    image: linuxserver/pyload
+    container_name: pyload
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+    volumes:
+      - $PYLOAD_DATA:/config
+      - $COMPLETE_FOLDER:/downloads
+    ports:
+      - 8001:8000
+      - 7227:7227 #optional
+    restart: unless-stopped
+####################################################
+  youtube-dl:
+    image: "kmb32123/youtube-dl-server"
+    volumes:
+      - $YOUTUBEDL_DATA:/youtube-dl
+    restart: always
+####################################################
+  youtube-dl-nas:
+    image: modenaf360/youtube-dl-nas
+    container_name: youtube-dl-nas
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - MY_ID=$YOUTUBEDL_MY_ID
+      - MY_PW=$YOUTUBEDL_MY_PW
+    volumes:
+      - $YOUTUBEDL_DATA:/downfolder
+    ports:
+      - 8081:8080
+####################################################
+  mylar:
+    image: linuxserver/mylar
+    container_name: mylar
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+    volumes:
+      - $MYLAR_DATA:/config
+      - $COMICS:/comics
+      - $COMPLETE_FOLDER:/downloads
+    ports:
+      - 8090:8090
+    restart: unless-stopped
+####################################################
+  syncthing:
+    image: linuxserver/syncthing
+    container_name: syncthing
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - UMASK_SET=022
+    volumes:
+      - /path/to/appdata/config:/config
+      - /path/to/data1:/data1
+      - /path/to/data2:/data2
+    ports:
+      - $SYNCTHING_PORT0:8384
+      - $SYNCTHING_PORT1:22000
+      - $SYNCTHING_PORT0:21027/udp
+    restart: unless-stopped
+####################################################
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=$PUID
+      - PGID=$PGID
+      - TZ=Europe/London
+      - UMASK_SET=022 #optional
+    volumes:
+      - $BAZARR_DATA:/config
+      - $MOVIE_DATA:/movies
+      - $TV_DATA:/tv
+    ports:
+      - $BAZARR_PORT:6767
+    restart: unless-stopped
+
+
+  
+
+
+
