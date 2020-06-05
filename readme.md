@@ -8,7 +8,7 @@ there are some variables that should be moved to the .env
 
 
 
-# How to create .env.example from .env
+## How to create .env.example from .env
 
 
 sed -i.bak 's/\=.*//g' .env.example
@@ -16,7 +16,7 @@ sed -i.bak 's/\=.*//g' .env.example
 
 
 
-# TO BE ADDED:
+## TO BE ADDED:
 * syncthing
 * ubooquiti
 * airsonic
