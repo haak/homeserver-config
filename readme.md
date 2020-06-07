@@ -6,7 +6,7 @@ The compose file is not complete
 
 there are some variables that should be moved to the .env 
 
-
+docker-compose restart|stop|start <container name>
 
 ## How to create .env.example from .env
 
@@ -36,3 +36,5 @@ sed -i.bak 's/\=.*//g' .env.example
 * Speedtest
 * Tautulli
 * Piwigo
+* matrix riot.io /matrix 
+* rocketchat
