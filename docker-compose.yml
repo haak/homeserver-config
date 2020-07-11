@@ -4,7 +4,6 @@ services:
   plex:
     image: linuxserver/plex
     container_name: plex
-    network_mode: host
     environment:
       - PUID=$PUID
       - PGID=$PGID
@@ -15,6 +14,7 @@ services:
       - $PLEX_DATA:/config
       - $TV_DATA:/tv
       - $MOVIE_DATA:/movies
+      - $MUSIC_FOLDER:/music
     ports:
       - $PLEX_PORT:$PLEX_PORT
     restart: unless-stopped
@@ -76,7 +76,7 @@ services:
       - $HEIMDALL_DATA:/config
     ports:
       - $HEIMDALL_PORT1:80
-      - $HEIMDALL_PORT2:443
+      # - $HEIMDALL_PORT2:443
     restart: unless-stopped
 #####################################################
   transmission-openvpn:
@@ -103,7 +103,10 @@ services:
         options:
             max-size: 10m
     ports:
-        - $TRANSMISSION_PORT:9091
+      - $TRANSMISSION_PORT:9091
+      - 6881:6881
+      - 6881:6881/udp
+      - 8082:8082
     restart: unless-stopped
 #####################################################
   jackett:
@@ -252,9 +255,211 @@ services:
 #     ports:
 #       - $GRAFANA_PORT:3000
 #     restart: unless-stopped
+####################################################
+  qbittorrent:
+    image: linuxserver/qbittorrent
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - UMASK_SET=022
+      - WEBUI_PORT=8082
+    volumes:
+      - $QBITORRENT_DATA2:/config
+      - $COMPLETE_FOLDER:/downloads/completed
+      - $INCOMPLETE_FOLDER:/downloads/incomplete
+      - $TRANSMISSION_WATCH:/watch
+
+    restart: unless-stopped
+    network_mode: "container:transmission-openvpn"
+####################################################
+  deemix:
+    container_name: deemix
+    image: registry.gitlab.com/bockiii/deemix-docker
+    restart: unless-stopped
+    ports:
+      - 6595:6595
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - $MUSIC_DOWNLOADS:/downloads
+      - $DEEMIX_DATA:/config
+####################################################
+  beets:
+    image: linuxserver/beets
+    container_name: beets
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - $BEETS_DATA:/config
+      - $MUSIC_FOLDER:/music
+      - $MUSIC_DOWNLOADS:/downloads
+    ports:
+      - 8337:8337
+    restart: unless-stopped
+####################################################
+  airsonic:
+    image: linuxserver/airsonic
+    container_name: airsonic
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      # - CONTEXT_PATH=URL_BASE #optional
+      # - JAVA_OPTS=options #optional
+    volumes:
+      - $AIRSONIC_DATA:/config
+      - $MUSIC_FOLDER:/music
+      # - /path/to/playlists:/playlists
+      # - /path/to/podcasts:/podcasts
+      # - /path/to/other media:/media #optional
+    ports:
+      - 4040:4040
+    # devices:
+      # - /dev/snd:/dev/snd #optional
+    restart: unless-stopped
+####################################################
+  x:
+    container_name: pihole
+    image: pihole/pihole:latest
+    # network_mode: host
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "8006:80/tcp"
+      - "443:443/tcp"
+    environment:
+      TZ: 'Europe/Dublin'
+      # ServerIP: '192.168.178.53'
+      # WEBPASSWORD: 'set a secure password here or it will be random'
+    # Volumes store your data between container upgrades
+    volumes:
+      # - $PIHOLE_DATA:/etc
+      - './etc-pihole/:/etc/pihole/'
+      - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
+    # Recommended but not required (DHCP needs NET_ADMIN)
+    #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+####################################################
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    ports: 
+      - 3000:3000
+####################################################
+  organizr:
+    image: linuxserver/organizr
+    container_name: organizr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London 
+    volumes:
+      - $ORGANIZER_DATA:/config
+    ports:
+      - $ORGANIZER_PORT:80
+    restart: unless-stopped
+####################################################
+  freshrss:
+    image: linuxserver/freshrss
+    container_name: freshrss
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - $FRESHRSS_DATA:/config
+    ports:
+      - $FRESHRSS_PORT:80
+    restart: unless-stopped
+####################################################
+
+  drone-server:
+    image: drone/drone:1
+    container_name: drone-server
+    ports:
+      - $DRONE_PORT:80
+    volumes:
+      - $DRONE_DATA:/data
+    restart: always
+    environment:
+      - DRONE_SERVER_HOST=${DRONE_SERVER_HOST}
+      - DRONE_SERVER_PROTO=${DRONE_SERVER_PROTO}
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+
+      # GitHub Config
+      - DRONE_GITHUB_SERVER=https://github.com
+      - DRONE_GITHUB_CLIENT_ID=${DRONE_GITHUB_CLIENT_ID}
+      - DRONE_GITHUB_CLIENT_SECRET=${DRONE_GITHUB_CLIENT_SECRET}
+      - DRONE_USER_FILTER=$DRONE_USER_FILTER
+
+      - DRONE_LOGS_PRETTY=true
+      - DRONE_LOGS_COLOR=true
+####################################################
+  # runner for docker version
+  drone-runner:
+    image: drone/drone-runner-docker:1
+    container_name: drone-runner
+    restart: always
+    depends_on:
+      - drone-server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DRONE_RPC_HOST=${DRONE_RPC_HOST}
+      - DRONE_RPC_PROTO=${DRONE_RPC_PROTO}
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+      - DRONE_RUNNER_CAPACITY=3
+####################################################
+  noip:
+    image: coppit/no-ip
+    container_name: noip
+    restart: always
+    volumes: 
+      - /etc/localtime:/etc/localtime
+      - $NOIP_DATA:/config
+####################################################
+  homer:
+    image: b4bz/homer:latest
+    container_name: homer
+    restart: unless-stopped
+    volumes:
+      - $HOMER_DATA:/www/assets 
+    ports:
+      - $HOMER_PORT:8080
+####################################################
+
+  ddclient:
+    image: linuxserver/ddclient
+    container_name: ddclient
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - $DDCLIENT_DATA:/config
+    restart: unless-stopped
+####################################################
+  nginx-hello:
+    image: nginxdemos/hello
+    container_name: nginx-hello
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    ports:
+      - 80:80
 
 
-  
-
-
-
+    
+      
