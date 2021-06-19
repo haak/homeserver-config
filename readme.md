@@ -1,4 +1,6 @@
-# This repo can be used to deploy your own home media server using docker compose.
+# Using https://github.com/haak/ansible-nas instead
+
+## This repo can be used to deploy your own home media server using docker compose.
 
 
 The compose file is not complete
